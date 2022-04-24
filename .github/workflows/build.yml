@@ -3,6 +3,44 @@ name: build
 on: [push, pull_request]
 
 jobs:
+  win-build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          make
+          mingw-w64-x86_64
+          mingw-w64-x86_64-clang
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-libusb
+          mingw-w64-x86_64-qt5-static
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        export PATH="/mingw64/bin:$PATH"
+        mkdir build
+        cd build
+        cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DQt5Widgets_DIR=/mingw64/qt5-static/lib/cmake/Qt5Widgets ..
+        make
+    - name: Get Zadig
+      shell: msys2 {0}
+      run: |
+        curl -s https://api.github.com/repos/pbatard/libwdi/releases/latest | 
+        grep "browser_download_url.*exe" | 
+        cut -d : -f 2,3 | 
+        tr -d \" | 
+        wget -O ./build/bin/zadig.exe -qi -
+        rm -fr ./build/bin/heimdall-frontend.exe
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: win-build
+        path: "./build/bin/*"
+
   linux-build:
     runs-on: ubuntu-latest
 
@@ -42,41 +80,3 @@ jobs:
       with:
         name: macos-build
         path: "./build/bin/heimdall"
-
-  win-build:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        install: >-
-          make
-          mingw-w64-x86_64
-          mingw-w64-x86_64-clang
-          mingw-w64-x86_64-cmake
-          mingw-w64-x86_64-libusb
-          mingw-w64-x86_64-qt5-static
-    - name: Build
-      shell: msys2 {0}
-      run: |
-        export PATH="/mingw64/bin:$PATH"
-        mkdir build
-        cd build
-        cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DQt5Widgets_DIR=/mingw64/qt5-static/lib/cmake/Qt5Widgets ..
-        make
-    - name: Get Zadig
-      shell: msys2 {0}
-      run: |
-        curl -s https://api.github.com/repos/pbatard/libwdi/releases/latest | 
-        grep "browser_download_url.*exe" | 
-        cut -d : -f 2,3 | 
-        tr -d \" | 
-        wget -O ./build/bin/zadig.exe -qi -
-        rm -fr heimdall-frontend.exe
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: win-build
-        path: "./build/bin/*"
